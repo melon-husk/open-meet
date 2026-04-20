@@ -9,22 +9,23 @@ export interface SpeechController {
   isListening: () => boolean;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function getSR(): (new () => any) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as any;
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+}
+
 export function isSupported(): boolean {
-  if (typeof window === "undefined") return false;
-  return !!(
-    window.SpeechRecognition ||
-    (window as unknown as Record<string, unknown>).webkitSpeechRecognition
-  );
+  return getSR() !== null;
 }
 
 export function createSpeechRecognizer(
   onSegment: SpeechCb,
   onError: ErrorCb
 ): SpeechController {
-  const SR =
-    window.SpeechRecognition ||
-    (window as unknown as Record<string, unknown>)
-      .webkitSpeechRecognition as typeof SpeechRecognition;
+  const SR = getSR();
+  if (!SR) throw new Error("Speech recognition not supported");
 
   const recognition = new SR();
   recognition.lang = "hi-IN";
@@ -35,7 +36,7 @@ export function createSpeechRecognizer(
   let intentionalStop = false;
   let listening = false;
 
-  recognition.onresult = (e: SpeechRecognitionEvent) => {
+  recognition.onresult = (e: any) => {
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const result = e.results[i];
       onSegment({
@@ -46,15 +47,14 @@ export function createSpeechRecognizer(
     }
   };
 
-  recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
+  recognition.onerror = (e: any) => {
     if (e.error === "aborted" && intentionalStop) return;
-    if (e.error === "no-speech") return; // normal during silence
+    if (e.error === "no-speech") return;
     onError(e.error);
   };
 
   recognition.onend = () => {
     listening = false;
-    // Auto-restart if not intentionally stopped
     if (!intentionalStop) {
       try {
         recognition.start();
@@ -83,3 +83,4 @@ export function createSpeechRecognizer(
     isListening: () => listening,
   };
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
