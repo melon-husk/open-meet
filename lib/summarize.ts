@@ -68,3 +68,27 @@ function buildPrompt(transcript: string, notes: string): string {
   prompt += `\n## Instructions\nSummarize this meeting in English. Structure the summary with Key Points, Decisions, and Action Items.`;
   return prompt;
 }
+
+export async function chatWithSummary(
+  summary: string,
+  transcript: string,
+  question: string
+): Promise<string> {
+  const ai = getAI();
+  if (!ai) throw new Error("AI not available");
+
+  const caps = await ai.capabilities();
+  if (caps.available === "no") throw new Error("AI model not available");
+
+  const session = await ai.create({
+    systemPrompt:
+      "You are a helpful assistant that answers questions about a meeting. You have the meeting summary and full transcript as context. Answer in English, be concise and specific. If the answer is not in the context, say so.",
+  });
+
+  try {
+    const prompt = `## Meeting Summary\n${summary}\n\n## Full Transcript\n${transcript}\n\n## Question\n${question}`;
+    return await session.prompt(prompt);
+  } finally {
+    session.destroy();
+  }
+}
