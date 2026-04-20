@@ -8,39 +8,27 @@ import {
   createSpeechRecognizer,
   SpeechController,
 } from "@/lib/speech";
-import { summarizeMeeting, checkAISupport } from "@/lib/summarize";
 
 export default function RecordingSession() {
   const router = useRouter();
-  const [isRecording, setIsRecording] = useState(false);
+  const [status, setStatus] = useState<"idle" | "recording" | "paused">("idle");
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [interim, setInterim] = useState("");
   const [notes, setNotes] = useState("");
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<
-    "idle" | "recording" | "summarizing" | "done" | "error"
-  >("idle");
   const [error, setError] = useState("");
-  const [aiStatus, setAiStatus] = useState<"checking" | "ready" | "no">(
-    "checking"
-  );
 
   const speechRef = useRef<SpeechController | null>(null);
   const meetingRef = useRef<Meeting | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    checkAISupport().then((s) => setAiStatus(s === "no" ? "no" : "ready"));
-  }, []);
-
-  // Auto-scroll transcript
-  useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [segments, interim]);
 
-  // Autosave every 10 seconds while recording
+  // Autosave every 10s while recording/paused
   useEffect(() => {
-    if (!isRecording || !meetingRef.current) return;
+    if (status === "idle" || !meetingRef.current) return;
     const interval = setInterval(() => {
       if (meetingRef.current) {
         meetingRef.current.segments = segments;
@@ -49,7 +37,7 @@ export default function RecordingSession() {
       }
     }, 10_000);
     return () => clearInterval(interval);
-  }, [isRecording, segments, notes]);
+  }, [status, segments, notes]);
 
   const handleSegment = useCallback((seg: TranscriptSegment) => {
     if (seg.isFinal) {
@@ -86,52 +74,38 @@ export default function RecordingSession() {
     const controller = createSpeechRecognizer(handleSegment, handleSpeechError);
     speechRef.current = controller;
     controller.start();
-    setIsRecording(true);
     setStatus("recording");
     setError("");
   }
 
-  async function stopRecording() {
+  function pauseRecording() {
     speechRef.current?.stop();
-    setIsRecording(false);
-    setStatus("summarizing");
+    setInterim("");
+    setStatus("paused");
+  }
+
+  function resumeRecording() {
+    const controller = createSpeechRecognizer(handleSegment, handleSpeechError);
+    speechRef.current = controller;
+    controller.start();
+    setStatus("recording");
+  }
+
+  async function finishRecording() {
+    speechRef.current?.stop();
+    setInterim("");
 
     const meeting = meetingRef.current!;
     meeting.segments = segments;
     meeting.notes = notes;
-    meeting.status = "summarizing";
+    meeting.status = "done";
     await saveMeeting(meeting);
 
-    const transcript = segments.map((s) => s.text).join(" ");
-
-    if (aiStatus === "no" || !transcript.trim()) {
-      meeting.status = transcript.trim() ? "summary_failed" : "done";
-      meeting.summary = transcript.trim()
-        ? "AI summarization not available in this browser."
-        : "";
-      await saveMeeting(meeting);
-      setStatus("done");
-      router.push(`/meeting/${meeting.id}`);
-      return;
-    }
-
-    try {
-      const summary = await summarizeMeeting(transcript, notes);
-      meeting.summary = summary;
-      meeting.status = "done";
-      await saveMeeting(meeting);
-      setStatus("done");
-      router.push(`/meeting/${meeting.id}`);
-    } catch {
-      meeting.status = "summary_failed";
-      meeting.summary = "Summarization failed. You can retry from the meeting page.";
-      await saveMeeting(meeting);
-      setStatus("error");
-      router.push(`/meeting/${meeting.id}`);
-    }
+    router.push(`/meeting/${meeting.id}`);
   }
 
   const transcriptText = segments.map((s) => s.text).join(" ");
+  const isActive = status === "recording" || status === "paused";
 
   return (
     <div className="flex flex-col h-full">
@@ -152,13 +126,17 @@ export default function RecordingSession() {
             </h2>
           )}
         </div>
-        <div className="ml-4 flex items-center gap-3">
-          {isRecording && (
-            <span className="flex items-center gap-1.5 text-xs text-red-500">
+        <div className="ml-4 flex items-center gap-2">
+          {status === "recording" && (
+            <span className="flex items-center gap-1.5 text-xs text-red-500 mr-1">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
               Recording
             </span>
           )}
+          {status === "paused" && (
+            <span className="text-xs text-amber-500 mr-1">Paused</span>
+          )}
+
           {status === "idle" && (
             <button
               onClick={startRecording}
@@ -167,16 +145,39 @@ export default function RecordingSession() {
               Start Recording
             </button>
           )}
+
           {status === "recording" && (
-            <button
-              onClick={stopRecording}
-              className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
-            >
-              Stop & Summarize
-            </button>
+            <>
+              <button
+                onClick={pauseRecording}
+                className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                Pause
+              </button>
+              <button
+                onClick={finishRecording}
+                className="px-3 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Stop
+              </button>
+            </>
           )}
-          {status === "summarizing" && (
-            <span className="text-sm text-amber-600">Summarizing…</span>
+
+          {status === "paused" && (
+            <>
+              <button
+                onClick={resumeRecording}
+                className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                Resume
+              </button>
+              <button
+                onClick={finishRecording}
+                className="px-3 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                Finish
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -185,17 +186,9 @@ export default function RecordingSession() {
         <p className="text-xs text-red-500 mt-3 px-1">{error}</p>
       )}
 
-      {aiStatus === "no" && status === "idle" && (
-        <p className="text-xs text-amber-500 mt-3 px-1">
-          ⚠ Chrome AI not available. Transcription will work but summarization
-          won&apos;t. Enable Gemini Nano in chrome://flags.
-        </p>
-      )}
-
-      {/* Content area — transcript + notes side by side */}
-      {status !== "idle" && (
+      {/* Content — transcript + notes side by side */}
+      {isActive && (
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 min-h-0">
-          {/* Transcript */}
           <div className="flex flex-col min-h-0">
             <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-3">
               Transcript
@@ -206,13 +199,14 @@ export default function RecordingSession() {
                 <p className="text-zinc-300 italic">{interim}</p>
               )}
               {!transcriptText && !interim && (
-                <p className="text-zinc-300">Listening…</p>
+                <p className="text-zinc-300">
+                  {status === "paused" ? "Paused" : "Listening…"}
+                </p>
               )}
               <div ref={transcriptEndRef} />
             </div>
           </div>
 
-          {/* Notes */}
           <div className="flex flex-col min-h-0">
             <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-3">
               Notes
@@ -222,7 +216,6 @@ export default function RecordingSession() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Type your notes here… These will enhance the summary."
               className="flex-1 resize-none text-sm text-zinc-700 leading-relaxed outline-none placeholder:text-zinc-300 bg-zinc-50/50 rounded-lg p-3 border border-zinc-100"
-              disabled={status === "summarizing"}
             />
           </div>
         </div>

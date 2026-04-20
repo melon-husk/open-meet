@@ -1,37 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Meeting, saveMeeting } from "@/lib/db";
-import { summarizeMeeting, chatWithSummary } from "@/lib/summarize";
+import {
+  summarizeMeeting,
+  chatWithSummary,
+  checkAISupport,
+} from "@/lib/summarize";
 
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
 }
 
-export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
+export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
+  const [meeting, setMeeting] = useState(initial);
   const [activeTab, setActiveTab] = useState<
     "summary" | "transcript" | "notes" | "chat"
   >(meeting.summary ? "summary" : "transcript");
+  const [notes, setNotes] = useState(meeting.notes);
+  const [notesEdited, setNotesEdited] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
-  const [retrying, setRetrying] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [aiStatus, setAiStatus] = useState<"checking" | "ready" | "no">(
+    "checking"
+  );
+
+  useEffect(() => {
+    checkAISupport().then((s) => setAiStatus(s === "no" ? "no" : "ready"));
+  }, []);
 
   const transcript = meeting.segments.map((s) => s.text).join(" ");
+  const hasSummary = !!meeting.summary;
+  const showRegenerate = hasSummary && notesEdited;
 
-  async function handleRetrySummary() {
-    setRetrying(true);
+  async function saveNotes() {
+    const updated = { ...meeting, notes };
+    await saveMeeting(updated);
+    setMeeting(updated);
+  }
+
+  async function handleGenerateSummary() {
+    if (aiStatus === "no") return;
+    setSummarizing(true);
     try {
-      const summary = await summarizeMeeting(transcript, meeting.notes);
-      meeting.summary = summary;
-      meeting.status = "done";
-      await saveMeeting(meeting);
+      const updated = { ...meeting, notes, status: "summarizing" as const };
+      await saveMeeting(updated);
+
+      const summary = await summarizeMeeting(transcript, notes);
+      const done = { ...updated, summary, status: "done" as const };
+      await saveMeeting(done);
+      setMeeting(done);
+      setNotesEdited(false);
       setActiveTab("summary");
     } catch {
-      // keep failed state
+      const failed = { ...meeting, notes, status: "summary_failed" as const };
+      await saveMeeting(failed);
+      setMeeting(failed);
     }
-    setRetrying(false);
+    setSummarizing(false);
   }
 
   async function handleChat() {
@@ -41,16 +70,15 @@ export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
     setChatMessages((prev) => [...prev, { role: "user", text: q }]);
     setChatLoading(true);
     try {
-      const answer = await chatWithSummary(
-        meeting.summary,
-        transcript,
-        q
-      );
+      const answer = await chatWithSummary(meeting.summary, transcript, q);
       setChatMessages((prev) => [...prev, { role: "assistant", text: answer }]);
     } catch {
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", text: "Sorry, couldn't process that. AI may not be available." },
+        {
+          role: "assistant",
+          text: "Sorry, couldn't process that. AI may not be available.",
+        },
       ]);
     }
     setChatLoading(false);
@@ -86,6 +114,42 @@ export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
             minute: "2-digit",
           })}
         </p>
+
+        {/* Generate / Regenerate summary */}
+        <div className="mt-3 flex items-center gap-2">
+          {!hasSummary && meeting.status !== "summary_failed" && (
+            <button
+              onClick={handleGenerateSummary}
+              disabled={summarizing || aiStatus === "no" || !transcript.trim()}
+              className="px-3 py-1.5 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30"
+            >
+              {summarizing ? "Generating…" : "Generate Summary"}
+            </button>
+          )}
+          {showRegenerate && (
+            <button
+              onClick={handleGenerateSummary}
+              disabled={summarizing}
+              className="px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+            >
+              {summarizing ? "Regenerating…" : "Regenerate Summary"}
+            </button>
+          )}
+          {meeting.status === "summary_failed" && (
+            <button
+              onClick={handleGenerateSummary}
+              disabled={summarizing}
+              className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {summarizing ? "Retrying…" : "Retry Summary"}
+            </button>
+          )}
+          {aiStatus === "no" && (
+            <span className="text-[10px] text-amber-500">
+              Chrome AI unavailable — enable Gemini Nano in chrome://flags
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -101,6 +165,9 @@ export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
             }`}
           >
             {tab.label}
+            {tab.id === "notes" && notesEdited && (
+              <span className="ml-1 w-1.5 h-1.5 bg-amber-400 rounded-full inline-block" />
+            )}
             {activeTab === tab.id && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900 rounded-full" />
             )}
@@ -113,20 +180,13 @@ export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
         {activeTab === "summary" && (
           <div>
             {meeting.summary ? (
-              <div className="prose prose-sm prose-zinc max-w-none text-sm leading-relaxed text-zinc-600 whitespace-pre-wrap">
+              <div className="text-sm leading-relaxed text-zinc-600 whitespace-pre-wrap">
                 {meeting.summary}
               </div>
             ) : (
-              <p className="text-zinc-400 text-sm">No summary available.</p>
-            )}
-            {meeting.status === "summary_failed" && (
-              <button
-                onClick={handleRetrySummary}
-                disabled={retrying}
-                className="mt-4 px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
-              >
-                {retrying ? "Retrying…" : "Retry Summary"}
-              </button>
+              <p className="text-zinc-400 text-sm py-8 text-center">
+                No summary yet — click &quot;Generate Summary&quot; above
+              </p>
             )}
           </div>
         )}
@@ -140,16 +200,34 @@ export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
         )}
 
         {activeTab === "notes" && (
-          <div className="text-sm text-zinc-600 leading-relaxed whitespace-pre-wrap">
-            {meeting.notes || (
-              <p className="text-zinc-400">No notes taken.</p>
-            )}
+          <div className="flex flex-col h-full gap-3">
+            <textarea
+              value={notes}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                setNotesEdited(true);
+              }}
+              placeholder="Add or edit your notes… Updates here will let you regenerate the summary."
+              className="flex-1 min-h-[200px] resize-none text-sm text-zinc-700 leading-relaxed outline-none placeholder:text-zinc-300 bg-zinc-50/50 rounded-lg p-3 border border-zinc-100"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={saveNotes}
+                className="px-3 py-1.5 text-xs font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                Save Notes
+              </button>
+              {notesEdited && hasSummary && (
+                <span className="text-[10px] text-amber-500">
+                  Notes changed — regenerate summary to reflect updates
+                </span>
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === "chat" && (
           <div className="flex flex-col h-full">
-            {/* Chat messages */}
             <div className="flex-1 overflow-y-auto space-y-3 pb-4">
               {chatMessages.length === 0 && (
                 <p className="text-zinc-300 text-sm text-center py-8">
@@ -181,7 +259,6 @@ export default function MeetingDetail({ meeting }: { meeting: Meeting }) {
               )}
             </div>
 
-            {/* Chat input */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
