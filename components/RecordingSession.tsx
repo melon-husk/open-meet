@@ -184,7 +184,7 @@ export default function RecordingSession() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-zinc-100">
+      <div className="flex flex-col gap-3 pb-6 border-b border-zinc-100 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 min-w-0">
           {status === "idle" ? (
             <input
@@ -200,7 +200,7 @@ export default function RecordingSession() {
             </h2>
           )}
         </div>
-        <div className="ml-4 flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-4 sm:justify-end">
           {status === "idle" && (
             <MicrophoneSelector
               disabled={false}
@@ -227,7 +227,7 @@ export default function RecordingSession() {
             <button
               onClick={startRecording}
               data-umami-event="start-recording"
-              className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg whitespace-nowrap hover:bg-zinc-800 transition-colors"
             >
               Start Recording
             </button>
