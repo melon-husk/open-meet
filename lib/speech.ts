@@ -22,13 +22,14 @@ export function isSupported(): boolean {
 
 export function createSpeechRecognizer(
   onSegment: SpeechCb,
-  onError: ErrorCb
+  onError: ErrorCb,
+  lang: string = "hi-IN"
 ): SpeechController {
   const SR = getSR();
   if (!SR) throw new Error("Speech recognition not supported");
 
   const recognition = new SR();
-  recognition.lang = "hi-IN";
+  recognition.lang = lang;
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;

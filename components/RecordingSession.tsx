@@ -9,6 +9,7 @@ import {
   SpeechController,
 } from "@/lib/speech";
 import MicrophoneSelector from "@/components/MicrophoneSelector";
+import LanguageSelector from "@/components/LanguageSelector";
 
 export default function RecordingSession() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function RecordingSession() {
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const selectedMicRef = useRef<string>("");
+  const selectedLangRef = useRef<string>("hi-IN");
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,7 +99,7 @@ export default function RecordingSession() {
     meetingRef.current = meeting;
     saveMeeting(meeting);
 
-    const controller = createSpeechRecognizer(handleSegment, handleSpeechError);
+    const controller = createSpeechRecognizer(handleSegment, handleSpeechError, selectedLangRef.current);
     speechRef.current = controller;
     controller.start();
     setStatus("recording");
@@ -113,7 +115,7 @@ export default function RecordingSession() {
 
   async function resumeRecording() {
     if (!(await activateMic())) return;
-    const controller = createSpeechRecognizer(handleSegment, handleSpeechError);
+    const controller = createSpeechRecognizer(handleSegment, handleSpeechError, selectedLangRef.current);
     speechRef.current = controller;
     controller.start();
     setStatus("recording");
@@ -160,6 +162,12 @@ export default function RecordingSession() {
             <MicrophoneSelector
               disabled={false}
               onDeviceChange={(id) => { selectedMicRef.current = id; }}
+            />
+          )}
+          {status === "idle" && (
+            <LanguageSelector
+              disabled={false}
+              onLanguageChange={(lang) => { selectedLangRef.current = lang; }}
             />
           )}
           {status === "recording" && (
