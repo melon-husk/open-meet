@@ -88,4 +88,46 @@ test.describe("Recording flow", () => {
     await page.waitForURL(/\/meeting\/.+/);
     await expect(page.getByText("Paused meeting content")).toBeVisible();
   });
+
+  test("new meeting view does not overflow horizontally on mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "New Meeting" }).click();
+
+    await expect(
+      page.getByRole("button", { name: "Start Recording" })
+    ).toBeVisible();
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth
+    );
+    expect(hasHorizontalOverflow).toBe(false);
+
+    const buttonWhiteSpace = await page
+      .getByRole("button", { name: "Start Recording" })
+      .evaluate((el) => getComputedStyle(el).whiteSpace);
+    expect(buttonWhiteSpace).toBe("nowrap");
+  });
+
+  test("shows an error when microphone access is denied", async ({ page }) => {
+    await page.addInitScript(() => {
+      if (navigator.mediaDevices) {
+        navigator.mediaDevices.getUserMedia = async () => {
+          throw new Error("Permission denied by test");
+        };
+      }
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "New Meeting" }).click();
+    await page.getByRole("button", { name: "Start Recording" }).click();
+
+    await expect(page.getByText("Could not access microphone:")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start Recording" })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pause" })).not.toBeVisible();
+  });
 });

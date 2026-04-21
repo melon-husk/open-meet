@@ -1,6 +1,8 @@
 import { test, expect, emitSegment } from "./fixtures";
 
 test.describe("Crash recovery", () => {
+  test.describe.configure({ mode: "serial" });
+
   test("shows recovery banner for meetings stuck in recording status", async ({
     page,
   }) => {
@@ -59,6 +61,33 @@ test.describe("Crash recovery", () => {
     // Should be in paused state with the recovered transcript
     await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("recovered segment")).toBeVisible();
+  });
+
+  test("resumed meeting can continue recording", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "New Meeting" }).click();
+    await page
+      .getByPlaceholder("Meeting title (optional)")
+      .fill("Resume And Finish");
+    await page.getByRole("button", { name: "Start Recording" }).click();
+    await emitSegment(page, "segment before crash", true);
+
+    await page.waitForTimeout(500);
+    await page.goto("/");
+    await page.getByRole("button", { name: "New Meeting" }).click();
+    await page.getByRole("button", { name: "Resume" }).click();
+
+    await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Resume" }).click();
+    await expect(page.getByText("Recording", { exact: true })).toBeVisible();
+    await emitSegment(page, "segment after resume", true);
+
+    await page.getByRole("button", { name: "Pause" }).click();
+    await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("segment before crash")).toBeVisible();
+    await expect(page.getByText("segment after resume")).toBeVisible();
   });
 });
 
