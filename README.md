@@ -47,3 +47,9 @@ Open [http://localhost:3000](http://localhost:3000) in Chrome.
 ## Privacy
 
 Everything runs client-side. Speech recognition, AI summarization, and storage all happen in your browser. No server, no third-party APIs, no data exfiltration.
+
+## Screenshots
+<img width="863" height="440" alt="image" src="https://github.com/user-attachments/assets/4ce95605-4db6-421e-b817-81bcfe59fba7" />
+<img width="863" height="440" alt="image" src="https://github.com/user-attachments/assets/c971ab4f-ceb2-4e2d-b973-1d3003e03909" />
+
+
