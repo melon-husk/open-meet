@@ -28,7 +28,7 @@ test.describe("Recording flow", () => {
     await page.getByRole("button", { name: "Start Recording" }).click();
 
     // Should show recording indicator
-    await expect(page.getByText("Recording")).toBeVisible();
+    await expect(page.getByText("Recording", { exact: true })).toBeVisible();
     await expect(page.getByText("Listening…")).toBeVisible();
 
     // Pause
@@ -39,7 +39,7 @@ test.describe("Recording flow", () => {
 
     // Resume
     await page.getByRole("button", { name: "Resume" }).click();
-    await expect(page.getByText("Recording")).toBeVisible();
+    await expect(page.getByText("Recording", { exact: true })).toBeVisible();
   });
 
   test("displays transcript from speech segments", async ({ page }) => {

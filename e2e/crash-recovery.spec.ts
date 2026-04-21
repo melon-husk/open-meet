@@ -48,13 +48,16 @@ test.describe("Crash recovery", () => {
     await page.getByRole("button", { name: "Start Recording" }).click();
     await emitSegment(page, "recovered segment", true);
 
+    // Wait for IndexedDB write to complete
+    await page.waitForTimeout(500);
+
     await page.goto("/");
     await page.getByRole("button", { name: "New Meeting" }).click();
     await expect(page.getByText("Unsaved recording found")).toBeVisible();
 
     await page.getByRole("button", { name: "Resume" }).click();
     // Should be in paused state with the recovered transcript
-    await expect(page.getByText("Paused")).toBeVisible();
+    await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("recovered segment")).toBeVisible();
   });
 });

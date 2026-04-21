@@ -21,6 +21,15 @@ export async function emitSegment(
   text: string,
   isFinal = true
 ) {
+  // Wait until a SpeechRecognition instance exists and has onresult wired up
+  await page.waitForFunction(
+    () => {
+      const m = (window as any).__mocks;
+      const inst = m?.speechInstances?.[m.speechInstances.length - 1];
+      return inst && inst.onresult && inst._running;
+    },
+    { timeout: 5000 }
+  );
   await page.evaluate(
     ({ t, f }) => (window as any).__mocks.emitSegment(t, f),
     { t: text, f: isFinal }
