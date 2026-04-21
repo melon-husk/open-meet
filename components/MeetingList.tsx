@@ -86,6 +86,7 @@ export default function MeetingList() {
                   e.stopPropagation();
                   handleDelete(m.id);
                 }}
+                data-umami-event="delete-meeting"
                 className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-400 transition-all p-1"
                 aria-label="Delete meeting"
               >

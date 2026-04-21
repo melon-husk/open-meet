@@ -225,6 +225,7 @@ export default function MeetingDetail({
             <button
               onClick={startTranscribing}
               disabled={summarizing}
+              data-umami-event="transcribe-more"
               className="px-3 py-1.5 text-xs font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -245,6 +246,7 @@ export default function MeetingDetail({
               />
               <button
                 onClick={stopTranscribing}
+                data-umami-event="stop-transcribe-more"
                 className="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
               >
                 Stop
@@ -259,6 +261,7 @@ export default function MeetingDetail({
                 summarizerAvailability === "unavailable" ||
                 !transcript.trim()
               }
+              data-umami-event="generate-summary"
               className="px-3 py-1.5 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30"
             >
               {summarizing ? "Generating…" : "Generate Summary"}
@@ -268,6 +271,7 @@ export default function MeetingDetail({
             <button
               onClick={handleGenerateSummary}
               disabled={summarizing}
+              data-umami-event="regenerate-summary"
               className="px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
             >
               {summarizing ? "Regenerating…" : "Regenerate Summary"}
@@ -277,6 +281,7 @@ export default function MeetingDetail({
             <button
               onClick={handleGenerateSummary}
               disabled={summarizing}
+              data-umami-event="retry-summary"
               className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
             >
               {summarizing ? "Retrying…" : "Retry Summary"}
@@ -364,6 +369,7 @@ export default function MeetingDetail({
             <div className="flex items-center gap-2">
               <button
                 onClick={saveNotes}
+                data-umami-event="save-notes"
                 className="px-3 py-1.5 text-xs font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
               >
                 Save Notes
@@ -428,6 +434,7 @@ export default function MeetingDetail({
               <button
                 type="submit"
                 disabled={chatLoading || !chatInput.trim()}
+                data-umami-event="chat-send"
                 className="px-3 py-2 bg-zinc-900 text-white text-sm rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30"
               >
                 Send
