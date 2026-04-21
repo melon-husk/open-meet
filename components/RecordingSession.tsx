@@ -184,93 +184,87 @@ export default function RecordingSession() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-zinc-100">
-        <div className="flex-1 min-w-0">
-          {status === "idle" ? (
-            <input
-              type="text"
-              placeholder="Meeting title (optional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="text-lg font-medium text-zinc-900 placeholder:text-zinc-300 w-full outline-none bg-transparent"
-            />
-          ) : (
-            <h2 className="text-lg font-medium text-zinc-900 truncate">
-              {meetingRef.current?.title}
-            </h2>
-          )}
+      <div className="pb-6 border-b border-zinc-100">
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            {status === "idle" ? (
+              <input
+                type="text"
+                placeholder="Meeting title (optional)"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="text-lg font-medium text-zinc-900 placeholder:text-zinc-300 w-full outline-none bg-transparent"
+              />
+            ) : (
+              <h2 className="text-lg font-medium text-zinc-900 truncate">
+                {meetingRef.current?.title}
+              </h2>
+            )}
+          </div>
+          <div className="ml-4 flex items-center gap-2 shrink-0">
+            {status === "recording" && (
+              <span className="flex items-center gap-1.5 text-xs text-red-500 mr-1">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                Recording
+              </span>
+            )}
+            {status === "paused" && (
+              <span className="text-xs text-amber-500 mr-1">Paused</span>
+            )}
+
+            {status === "recording" && (
+              <>
+                <button
+                  onClick={pauseRecording}
+                  className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
+                >
+                  Pause
+                </button>
+                <button
+                  onClick={finishRecording}
+                  className="px-3 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Stop
+                </button>
+              </>
+            )}
+
+            {status === "paused" && (
+              <>
+                <button
+                  onClick={resumeRecording}
+                  className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
+                >
+                  Resume
+                </button>
+                <button
+                  onClick={finishRecording}
+                  className="px-3 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
+                >
+                  Finish
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <div className="ml-4 flex items-center gap-2">
-          {status === "idle" && (
+        {status === "idle" && (
+          <div className="flex flex-wrap items-center gap-2 mt-3">
             <MicrophoneSelector
               disabled={false}
               onDeviceChange={(id) => { selectedMicRef.current = id; }}
             />
-          )}
-          {status === "idle" && (
             <LanguageSelector
               disabled={false}
               onLanguageChange={(lang) => { selectedLangRef.current = lang; }}
             />
-          )}
-          {status === "recording" && (
-            <span className="flex items-center gap-1.5 text-xs text-red-500 mr-1">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              Recording
-            </span>
-          )}
-          {status === "paused" && (
-            <span className="text-xs text-amber-500 mr-1">Paused</span>
-          )}
-
-          {status === "idle" && (
             <button
               onClick={startRecording}
-              data-umami-event="start-recording"
-              className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors whitespace-nowrap"
             >
               Start Recording
             </button>
-          )}
-
-          {status === "recording" && (
-            <>
-              <button
-                onClick={pauseRecording}
-                data-umami-event="pause-recording"
-                className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
-              >
-                Pause
-              </button>
-              <button
-                onClick={finishRecording}
-                data-umami-event="stop-recording"
-                className="px-3 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
-              >
-                Stop
-              </button>
-            </>
-          )}
-
-          {status === "paused" && (
-            <>
-              <button
-                onClick={resumeRecording}
-                data-umami-event="resume-recording"
-                className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
-              >
-                Resume
-              </button>
-              <button
-                onClick={finishRecording}
-                data-umami-event="finish-recording"
-                className="px-3 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
-              >
-                Finish
-              </button>
-            </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {error && (
