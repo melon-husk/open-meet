@@ -1,6 +1,6 @@
 # Open Meet
 
-[![E2E Tests](https://github.com/melon-husk/open-meet/actions/workflows/e2e.yml/badge.svg)](https://github.com/melon-husk/open-meet/actions/workflows/e2e.yml)
+[![E2E Tests](https://github.com/melon-husk/open-meet/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/melon-husk/open-meet/actions/workflows/e2e.yml)
 
 🔗 **[meet.ujwalbhagat.com](https://meet.ujwalbhagat.com/)**
 
