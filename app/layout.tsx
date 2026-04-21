@@ -81,7 +81,8 @@ export const metadata: Metadata = {
     images: ["/opengraph-image"],
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [{ url: "/icon", type: "image/png" }],
+    shortcut: "/icon",
   },
 };
 
