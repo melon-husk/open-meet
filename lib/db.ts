@@ -55,6 +55,54 @@ export async function saveMeeting(meeting: Meeting): Promise<void> {
   });
 }
 
+/** Atomically append a segment to a meeting's segments array in IndexedDB. */
+export async function appendSegment(
+  meetingId: string,
+  segment: TranscriptSegment
+): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const store = tx(db, "readwrite");
+    const getReq = store.get(meetingId);
+    getReq.onsuccess = () => {
+      const meeting = getReq.result as Meeting | undefined;
+      if (!meeting) {
+        reject(new Error(`Meeting ${meetingId} not found`));
+        return;
+      }
+      meeting.segments.push(segment);
+      const putReq = store.put(meeting);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
+  });
+}
+
+/** Update specific fields on a meeting without overwriting segments. */
+export async function updateMeetingFields(
+  meetingId: string,
+  fields: Partial<Omit<Meeting, "id">>
+): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const store = tx(db, "readwrite");
+    const getReq = store.get(meetingId);
+    getReq.onsuccess = () => {
+      const meeting = getReq.result as Meeting | undefined;
+      if (!meeting) {
+        reject(new Error(`Meeting ${meetingId} not found`));
+        return;
+      }
+      Object.assign(meeting, fields);
+      const putReq = store.put(meeting);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
+  });
+}
+
 export async function getMeeting(id: string): Promise<Meeting | undefined> {
   const db = await open();
   return new Promise((resolve, reject) => {

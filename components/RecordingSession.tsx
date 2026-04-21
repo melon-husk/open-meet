@@ -2,7 +2,15 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Meeting, TranscriptSegment, saveMeeting } from "@/lib/db";
+import {
+  Meeting,
+  TranscriptSegment,
+  saveMeeting,
+  getMeeting,
+  appendSegment,
+  updateMeetingFields,
+  getAllMeetings,
+} from "@/lib/db";
 import {
   isSupported as isSpeechSupported,
   createSpeechRecognizer,
@@ -19,6 +27,7 @@ export default function RecordingSession() {
   const [notes, setNotes] = useState("");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
+  const [recoverable, setRecoverable] = useState<Meeting | null>(null);
 
   const speechRef = useRef<SpeechController | null>(null);
   const meetingRef = useRef<Meeting | null>(null);
@@ -26,28 +35,42 @@ export default function RecordingSession() {
   const micStreamRef = useRef<MediaStream | null>(null);
   const selectedMicRef = useRef<string>("");
   const selectedLangRef = useRef<string>("hi-IN");
+  const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [segments, interim]);
 
-  // Autosave every 10s while recording/paused
+  // Check for meetings left in "recording" status from a previous crash
+  useEffect(() => {
+    getAllMeetings().then((meetings) => {
+      const stuck = meetings.find((m) => m.status === "recording");
+      if (stuck) setRecoverable(stuck);
+    });
+  }, []);
+
+  // Debounced notes save — persist notes 2s after the user stops typing
   useEffect(() => {
     if (status === "idle" || !meetingRef.current) return;
-    const interval = setInterval(() => {
+    if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    notesSaveTimer.current = setTimeout(() => {
       if (meetingRef.current) {
-        meetingRef.current.segments = segments;
-        meetingRef.current.notes = notes;
-        saveMeeting(meetingRef.current);
+        updateMeetingFields(meetingRef.current.id, { notes });
       }
-    }, 10_000);
-    return () => clearInterval(interval);
-  }, [status, segments, notes]);
+    }, 2_000);
+    return () => {
+      if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    };
+  }, [notes, status]);
 
   const handleSegment = useCallback((seg: TranscriptSegment) => {
     if (seg.isFinal) {
       setSegments((prev) => [...prev, seg]);
       setInterim("");
+      // Persist immediately to IndexedDB
+      if (meetingRef.current) {
+        appendSegment(meetingRef.current.id, seg).catch(console.error);
+      }
     } else {
       setInterim(seg.text);
     }
@@ -98,13 +121,31 @@ export default function RecordingSession() {
       status: "recording",
     };
     meetingRef.current = meeting;
-    saveMeeting(meeting);
+    await saveMeeting(meeting);
+    setRecoverable(null);
 
     const controller = createSpeechRecognizer(handleSegment, handleSpeechError, selectedLangRef.current);
     speechRef.current = controller;
     controller.start();
     setStatus("recording");
     setError("");
+  }
+
+  async function recoverMeeting(meeting: Meeting) {
+    // Load the persisted meeting (segments are already in DB)
+    const fresh = await getMeeting(meeting.id);
+    if (!fresh) return;
+    meetingRef.current = fresh;
+    setSegments(fresh.segments);
+    setNotes(fresh.notes);
+    setTitle(fresh.title);
+    setRecoverable(null);
+    setStatus("paused");
+  }
+
+  async function discardRecovery(meeting: Meeting) {
+    await updateMeetingFields(meeting.id, { status: "recorded" });
+    setRecoverable(null);
   }
 
   function pauseRecording() {
@@ -127,14 +168,14 @@ export default function RecordingSession() {
     releaseMic();
     setInterim("");
 
-    const meeting = meetingRef.current!;
-    meeting.segments = segments;
-    meeting.notes = notes;
-    meeting.lang = selectedLangRef.current;
-    meeting.status = "recorded";
-    await saveMeeting(meeting);
+    const meetingId = meetingRef.current!.id;
+    await updateMeetingFields(meetingId, {
+      notes,
+      lang: selectedLangRef.current,
+      status: "recorded",
+    });
 
-    router.push(`/meeting/${meeting.id}`);
+    router.push(`/meeting/${meetingId}`);
   }
 
   const transcriptText = segments.map((s) => s.text).join(" ");
@@ -229,6 +270,34 @@ export default function RecordingSession() {
 
       {error && (
         <p className="text-xs text-red-500 mt-3 px-1">{error}</p>
+      )}
+
+      {/* Crash recovery banner */}
+      {recoverable && status === "idle" && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-amber-800">
+              Unsaved recording found
+            </p>
+            <p className="text-xs text-amber-600 truncate mt-0.5">
+              &quot;{recoverable.title}&quot; — {recoverable.segments.length} segment{recoverable.segments.length !== 1 ? "s" : ""} recovered
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => recoverMeeting(recoverable)}
+              className="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+            >
+              Resume
+            </button>
+            <button
+              onClick={() => discardRecovery(recoverable)}
+              className="px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Content — transcript + notes side by side */}

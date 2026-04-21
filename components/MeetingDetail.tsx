@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Meeting, TranscriptSegment, saveMeeting } from "@/lib/db";
+import { Meeting, TranscriptSegment, saveMeeting, appendSegment, updateMeetingFields } from "@/lib/db";
 import { summarizeMeeting, chatWithSummary } from "@/lib/summarize";
 import {
   isSupported as isSpeechSupported,
@@ -113,10 +113,12 @@ export default function MeetingDetail({
     if (seg.isFinal) {
       setNewSegments((prev) => [...prev, seg]);
       setNewInterim("");
+      appendSegment(meeting.id, seg).catch(console.error);
     } else {
       setNewInterim(seg.text);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meeting.id]);
 
   const handleTranscribeError = useCallback((err: string) => {
     setTranscribeError(`Mic error: ${err}`);
@@ -154,12 +156,14 @@ export default function MeetingDetail({
     setNewInterim("");
 
     if (newSegments.length > 0) {
+      // Segments are already persisted individually via appendSegment.
+      // Just update local state and save the lang.
+      await updateMeetingFields(meeting.id, { lang: transcribeLangRef.current });
       const updated = {
         ...meeting,
         segments: [...meeting.segments, ...newSegments],
         lang: transcribeLangRef.current,
       };
-      await saveMeeting(updated);
       setMeeting(updated);
       setNewSegments([]);
       if (hasSummary) setNotesEdited(true);
