@@ -1,5 +1,9 @@
 # Open Meet
 
+[![E2E Tests](https://github.com/melon-husk/open-meet/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/melon-husk/open-meet/actions/workflows/e2e.yml)
+
+🔗 **[meet.ujwalbhagat.com](https://meet.ujwalbhagat.com/)**
+
 A privacy-first meeting transcription and summarization app that runs entirely in your browser. No data ever leaves your device.
 
 ## Features
