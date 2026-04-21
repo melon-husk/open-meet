@@ -11,12 +11,13 @@ export interface Meeting {
   segments: TranscriptSegment[];
   notes: string;
   summary: string;
-  status: "recording" | "summarizing" | "done" | "summary_failed";
+  status: "recording" | "recorded" | "summarizing" | "done" | "summary_failed";
 }
 
 const DB_NAME = "open-meet";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "meetings";
+const SETTINGS_STORE = "settings";
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -27,6 +28,9 @@ function open(): Promise<IDBDatabase> {
         const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
         store.createIndex("date", "date", { unique: false });
         store.createIndex("status", "status", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
+        db.createObjectStore(SETTINGS_STORE, { keyPath: "key" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -81,6 +85,36 @@ export async function getAllMeetings(): Promise<Meeting[]> {
       } else {
         resolve(results);
       }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// --- Settings helpers ---
+
+function settingsTx(
+  db: IDBDatabase,
+  mode: IDBTransactionMode
+): IDBObjectStore {
+  return db.transaction(SETTINGS_STORE, mode).objectStore(SETTINGS_STORE);
+}
+
+export async function saveSetting(key: string, value: string): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const req = settingsTx(db, "readwrite").put({ key, value });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getSetting(key: string): Promise<string | undefined> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const req = settingsTx(db, "readonly").get(key);
+    req.onsuccess = () => {
+      const result = req.result as { key: string; value: string } | undefined;
+      resolve(result?.value);
     };
     req.onerror = () => reject(req.error);
   });

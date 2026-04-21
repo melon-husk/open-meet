@@ -61,20 +61,24 @@ export default function MeetingList() {
                 className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                   m.status === "done"
                     ? "bg-emerald-50 text-emerald-600"
-                    : m.status === "recording"
-                      ? "bg-red-50 text-red-500"
-                      : m.status === "summarizing"
-                        ? "bg-amber-50 text-amber-600"
-                        : "bg-zinc-100 text-zinc-500"
+                    : m.status === "recorded"
+                      ? "bg-blue-50 text-blue-600"
+                      : m.status === "recording"
+                        ? "bg-red-50 text-red-500"
+                        : m.status === "summarizing"
+                          ? "bg-amber-50 text-amber-600"
+                          : "bg-zinc-100 text-zinc-500"
                 }`}
               >
                 {m.status === "done"
                   ? "Summarized"
-                  : m.status === "recording"
-                    ? "Recording"
-                    : m.status === "summarizing"
-                      ? "Summarizing…"
-                      : "Failed"}
+                  : m.status === "recorded"
+                    ? "Recorded"
+                    : m.status === "recording"
+                      ? "Recording"
+                      : m.status === "summarizing"
+                        ? "Summarizing…"
+                        : "Failed"}
               </span>
               <button
                 onClick={(e) => {

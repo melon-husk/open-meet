@@ -8,6 +8,7 @@ import {
   createSpeechRecognizer,
   SpeechController,
 } from "@/lib/speech";
+import MicrophoneSelector from "@/components/MicrophoneSelector";
 
 export default function RecordingSession() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function RecordingSession() {
   const speechRef = useRef<SpeechController | null>(null);
   const meetingRef = useRef<Meeting | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const selectedMicRef = useRef<string>("");
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,11 +55,34 @@ export default function RecordingSession() {
     setError(`Mic error: ${err}`);
   }, []);
 
-  function startRecording() {
+  async function activateMic(): Promise<boolean> {
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: selectedMicRef.current
+          ? { deviceId: { exact: selectedMicRef.current } }
+          : true,
+      };
+      micStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
+      return true;
+    } catch (e) {
+      setError(`Could not access microphone: ${e}`);
+      return false;
+    }
+  }
+
+  function releaseMic() {
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
+  }
+
+  async function startRecording() {
     if (!isSpeechSupported()) {
       setError("Speech recognition not supported. Use Chrome or Edge.");
       return;
     }
+
+    if (!(await activateMic())) return;
 
     const id = crypto.randomUUID();
     const meeting: Meeting = {
@@ -80,11 +106,13 @@ export default function RecordingSession() {
 
   function pauseRecording() {
     speechRef.current?.stop();
+    releaseMic();
     setInterim("");
     setStatus("paused");
   }
 
-  function resumeRecording() {
+  async function resumeRecording() {
+    if (!(await activateMic())) return;
     const controller = createSpeechRecognizer(handleSegment, handleSpeechError);
     speechRef.current = controller;
     controller.start();
@@ -93,12 +121,13 @@ export default function RecordingSession() {
 
   async function finishRecording() {
     speechRef.current?.stop();
+    releaseMic();
     setInterim("");
 
     const meeting = meetingRef.current!;
     meeting.segments = segments;
     meeting.notes = notes;
-    meeting.status = "done";
+    meeting.status = "recorded";
     await saveMeeting(meeting);
 
     router.push(`/meeting/${meeting.id}`);
@@ -127,6 +156,12 @@ export default function RecordingSession() {
           )}
         </div>
         <div className="ml-4 flex items-center gap-2">
+          {status === "idle" && (
+            <MicrophoneSelector
+              disabled={false}
+              onDeviceChange={(id) => { selectedMicRef.current = id; }}
+            />
+          )}
           {status === "recording" && (
             <span className="flex items-center gap-1.5 text-xs text-red-500 mr-1">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
