@@ -16,8 +16,13 @@ test.describe("Meeting detail page", () => {
       await emitSegment(page, text, true);
     }
 
+    // Wait for IndexedDB writes to flush
+    await page.waitForTimeout(500);
+
     await page.getByRole("button", { name: "Stop" }).click();
     await page.waitForURL(/\/meeting\/.+/);
+    // Wait for meeting detail to load from IndexedDB
+    await expect(page.getByText(title)).toBeVisible();
   }
 
   test("shows meeting title and date", async ({ page }) => {
@@ -78,11 +83,11 @@ test.describe("Meeting detail page", () => {
   test("transcribe more: can add segments to existing meeting", async ({
     page,
   }) => {
-    await createMeeting(page, "Transcribe More", ["original content"]);
+    await createMeeting(page, "Append Test", ["original content"]);
 
     await page.getByRole("button", { name: "Transcribe More" }).click();
     // Should switch to transcript tab with recording indicator
-    await expect(page.getByText("Recording")).toBeVisible();
+    await expect(page.getByText("Recording", { exact: true })).toBeVisible();
 
     await emitSegment(page, "additional content", true);
     await expect(page.getByText("additional content")).toBeVisible();
@@ -91,7 +96,7 @@ test.describe("Meeting detail page", () => {
 
     // Stop transcribing
     await page.getByRole("button", { name: "Stop" }).click();
-    await expect(page.getByText("Recording")).not.toBeVisible();
+    await expect(page.getByText("Recording", { exact: true })).not.toBeVisible();
 
     // Both original and new content should be in transcript
     await expect(page.getByText("original content")).toBeVisible();
