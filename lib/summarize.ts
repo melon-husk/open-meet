@@ -78,7 +78,7 @@ export async function checkAISupport(): Promise<
 
 export async function summarizeMeeting(
   transcript: string,
-  notes: string
+  notes: string,
 ): Promise<string> {
   if (USE_PROMPT_API) {
     return summarizeWithPromptAPI(transcript, notes);
@@ -89,7 +89,7 @@ export async function summarizeMeeting(
 export async function chatWithSummary(
   summary: string,
   transcript: string,
-  question: string
+  question: string,
 ): Promise<string> {
   if (USE_PROMPT_API) {
     return chatWithPromptAPI(summary, transcript, question);
@@ -101,7 +101,7 @@ export async function chatWithSummary(
     return chatWithPromptAPI(summary, transcript, question);
   }
   throw new Error(
-    "Chat requires the Prompt API. Enable it by setting USE_PROMPT_API = true."
+    "Chat requires the Prompt API. Enable it by setting USE_PROMPT_API = true.",
   );
 }
 
@@ -111,28 +111,27 @@ export async function chatWithSummary(
 
 async function summarizeWithSummarizerAPI(
   transcript: string,
-  notes: string
+  notes: string,
 ): Promise<string> {
-  const api = getSummarizerAPI();
-  if (!api) throw new Error("Summarizer API not available");
-
-  const caps = await api.capabilities();
-  if (caps.available === "no") throw new Error("Summarizer not available");
-
-  const summarizer = await api.create({
+  const summarizer = await Summarizer.create({
     type: "key-points",
     format: "markdown",
     length: "medium",
+    outputLanguage: "en",
     sharedContext:
       "This is a meeting transcript, often in Hinglish (Hindi + English mix). Summarize in English with key discussion points, decisions, and action items.",
   });
 
   try {
     const input = buildSummarizerInput(transcript, notes);
+    console.log("Input for summarizer:", input);
     return await summarizer.summarize(input, {
       context:
         "Produce the summary in English. Include key points, decisions made, and action items.",
     });
+  } catch (error) {
+    console.error("Error summarizing meeting:", error);
+    throw error;
   } finally {
     summarizer.destroy();
   }
@@ -152,7 +151,7 @@ function buildSummarizerInput(transcript: string, notes: string): string {
 
 async function summarizeWithPromptAPI(
   transcript: string,
-  notes: string
+  notes: string,
 ): Promise<string> {
   const ai = getPromptAPI();
   if (!ai) throw new Error("Prompt API not available");
@@ -181,7 +180,7 @@ async function summarizeWithPromptAPI(
 async function chatWithPromptAPI(
   summary: string,
   transcript: string,
-  question: string
+  question: string,
 ): Promise<string> {
   const ai = getPromptAPI();
   if (!ai) throw new Error("Prompt API not available");

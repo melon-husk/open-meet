@@ -2,18 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { Meeting, saveMeeting } from "@/lib/db";
-import {
-  summarizeMeeting,
-  chatWithSummary,
-  checkAISupport,
-} from "@/lib/summarize";
+import { summarizeMeeting, chatWithSummary } from "@/lib/summarize";
+import Markdown from "react-markdown";
+import Link from "next/link";
 
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
 }
 
-export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }) {
+export default function MeetingDetail({
+  meeting: initial,
+}: {
+  meeting: Meeting;
+}) {
   const [meeting, setMeeting] = useState(initial);
   const [activeTab, setActiveTab] = useState<
     "summary" | "transcript" | "notes" | "chat"
@@ -24,12 +26,20 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
-  const [aiStatus, setAiStatus] = useState<"checking" | "ready" | "no">(
-    "checking"
-  );
+  const [summarizerAvailability, setSummarizerAvailability] =
+    useState<Availability>("unavailable");
 
   useEffect(() => {
-    checkAISupport().then((s) => setAiStatus(s === "no" ? "no" : "ready"));
+    if (!("Summarizer" in self)) {
+      // The Summarizer API is NOT supported.
+      return;
+    }
+    Summarizer.availability()
+      .then((availability) => setSummarizerAvailability(availability))
+      .catch((error) => {
+        console.error(error);
+        setSummarizerAvailability("unavailable");
+      });
   }, []);
 
   const transcript = meeting.segments.map((s) => s.text).join(" ");
@@ -43,7 +53,7 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
   }
 
   async function handleGenerateSummary() {
-    if (aiStatus === "no") return;
+    if (summarizerAvailability === "unavailable") return;
     setSummarizing(true);
     try {
       const updated = { ...meeting, notes, status: "summarizing" as const };
@@ -95,12 +105,12 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="pb-4 border-b border-zinc-100">
-        <a
+        <Link
           href="/"
           className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
         >
           ← Back
-        </a>
+        </Link>
         <h1 className="text-xl font-semibold text-zinc-900 mt-2">
           {meeting.title}
         </h1>
@@ -120,7 +130,11 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
           {!hasSummary && meeting.status !== "summary_failed" && (
             <button
               onClick={handleGenerateSummary}
-              disabled={summarizing || aiStatus === "no" || !transcript.trim()}
+              disabled={
+                summarizing ||
+                summarizerAvailability === "unavailable" ||
+                !transcript.trim()
+              }
               className="px-3 py-1.5 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30"
             >
               {summarizing ? "Generating…" : "Generate Summary"}
@@ -144,7 +158,7 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
               {summarizing ? "Retrying…" : "Retry Summary"}
             </button>
           )}
-          {aiStatus === "no" && (
+          {summarizerAvailability === "unavailable" && (
             <span className="text-[10px] text-amber-500">
               Chrome AI unavailable — enable Gemini Nano in chrome://flags
             </span>
@@ -180,9 +194,7 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
         {activeTab === "summary" && (
           <div>
             {meeting.summary ? (
-              <div className="text-sm leading-relaxed text-zinc-600 whitespace-pre-wrap">
-                {meeting.summary}
-              </div>
+              <Markdown>{meeting.summary}</Markdown>
             ) : (
               <p className="text-zinc-400 text-sm py-8 text-center">
                 No summary yet — click &quot;Generate Summary&quot; above
@@ -208,7 +220,7 @@ export default function MeetingDetail({ meeting: initial }: { meeting: Meeting }
                 setNotesEdited(true);
               }}
               placeholder="Add or edit your notes… Updates here will let you regenerate the summary."
-              className="flex-1 min-h-[200px] resize-none text-sm text-zinc-700 leading-relaxed outline-none placeholder:text-zinc-300 bg-zinc-50/50 rounded-lg p-3 border border-zinc-100"
+              className="flex-1 min-h-50 resize-none text-sm text-zinc-700 leading-relaxed outline-none placeholder:text-zinc-300 bg-zinc-50/50 rounded-lg p-3 border border-zinc-100"
             />
             <div className="flex items-center gap-2">
               <button
