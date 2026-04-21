@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Meeting, getMeeting } from "@/lib/db";
 import MeetingDetail from "@/components/MeetingDetail";
+import Link from "next/link";
 
 export default function MeetingPage({ id }: { id: string }) {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
@@ -19,9 +20,12 @@ export default function MeetingPage({ id }: { id: string }) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center">
         <p className="text-zinc-400 text-sm">Meeting not found</p>
-        <a href="/" className="text-xs text-zinc-500 hover:text-zinc-700 mt-2">
+        <Link
+          href="/"
+          className="text-xs text-zinc-500 hover:text-zinc-700 mt-2"
+        >
           ← Back to meetings
-        </a>
+        </Link>
       </div>
     );
   }
