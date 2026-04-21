@@ -8,6 +8,7 @@ export interface Meeting {
   id: string;
   title: string;
   date: string;
+  lang?: string;
   segments: TranscriptSegment[];
   notes: string;
   summary: string;

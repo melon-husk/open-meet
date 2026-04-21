@@ -91,6 +91,7 @@ export default function RecordingSession() {
       id,
       title: title.trim() || `Meeting — ${new Date().toLocaleString("en-IN")}`,
       date: new Date().toISOString(),
+      lang: selectedLangRef.current,
       segments: [],
       notes: "",
       summary: "",
@@ -129,6 +130,7 @@ export default function RecordingSession() {
     const meeting = meetingRef.current!;
     meeting.segments = segments;
     meeting.notes = notes;
+    meeting.lang = selectedLangRef.current;
     meeting.status = "recorded";
     await saveMeeting(meeting);
 

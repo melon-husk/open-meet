@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Meeting, saveMeeting } from "@/lib/db";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Meeting, TranscriptSegment, saveMeeting } from "@/lib/db";
 import { summarizeMeeting, chatWithSummary } from "@/lib/summarize";
+import {
+  isSupported as isSpeechSupported,
+  createSpeechRecognizer,
+  SpeechController,
+} from "@/lib/speech";
+import LanguageSelector, { DEFAULT_LANG } from "@/components/LanguageSelector";
 import Markdown from "react-markdown";
 import Link from "next/link";
 
@@ -28,6 +34,15 @@ export default function MeetingDetail({
   const [summarizing, setSummarizing] = useState(false);
   const [summarizerAvailability, setSummarizerAvailability] =
     useState<Availability>("unavailable");
+
+  // Transcribe-more state
+  const [transcribing, setTranscribing] = useState(false);
+  const [newSegments, setNewSegments] = useState<TranscriptSegment[]>([]);
+  const [newInterim, setNewInterim] = useState("");
+  const [transcribeError, setTranscribeError] = useState("");
+  const speechRef = useRef<SpeechController | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const transcribeLangRef = useRef<string>(meeting.lang ?? DEFAULT_LANG);
 
   useEffect(() => {
     if (!("Summarizer" in self)) {
@@ -94,6 +109,63 @@ export default function MeetingDetail({
     setChatLoading(false);
   }
 
+  const handleNewSegment = useCallback((seg: TranscriptSegment) => {
+    if (seg.isFinal) {
+      setNewSegments((prev) => [...prev, seg]);
+      setNewInterim("");
+    } else {
+      setNewInterim(seg.text);
+    }
+  }, []);
+
+  const handleTranscribeError = useCallback((err: string) => {
+    setTranscribeError(`Mic error: ${err}`);
+  }, []);
+
+  async function startTranscribing() {
+    if (!isSpeechSupported()) {
+      setTranscribeError("Speech recognition not supported. Use Chrome or Edge.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+    } catch (e) {
+      setTranscribeError(`Could not access microphone: ${e}`);
+      return;
+    }
+    const controller = createSpeechRecognizer(
+      handleNewSegment,
+      handleTranscribeError,
+      transcribeLangRef.current
+    );
+    speechRef.current = controller;
+    controller.start();
+    setTranscribing(true);
+    setTranscribeError("");
+    setActiveTab("transcript");
+  }
+
+  async function stopTranscribing() {
+    speechRef.current?.stop();
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
+    setTranscribing(false);
+    setNewInterim("");
+
+    if (newSegments.length > 0) {
+      const updated = {
+        ...meeting,
+        segments: [...meeting.segments, ...newSegments],
+        lang: transcribeLangRef.current,
+      };
+      await saveMeeting(updated);
+      setMeeting(updated);
+      setNewSegments([]);
+      if (hasSummary) setNotesEdited(true);
+    }
+  }
+
   const tabs = [
     { id: "summary" as const, label: "Summary" },
     { id: "transcript" as const, label: "Transcript" },
@@ -125,9 +197,40 @@ export default function MeetingDetail({
           })}
         </p>
 
-        {/* Generate / Regenerate summary */}
-        <div className="mt-3 flex items-center gap-2">
-          {!hasSummary && meeting.status !== "summary_failed" && (
+        {/* Actions */}
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          {!transcribing && (
+            <button
+              onClick={startTranscribing}
+              disabled={summarizing}
+              className="px-3 py-1.5 text-xs font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+              </svg>
+              Transcribe More
+            </button>
+          )}
+          {transcribing && (
+            <>
+              <span className="flex items-center gap-1.5 text-xs text-red-500">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                Recording
+              </span>
+              <LanguageSelector
+                disabled
+                onLanguageChange={(lang) => { transcribeLangRef.current = lang; }}
+              />
+              <button
+                onClick={stopTranscribing}
+                className="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Stop
+              </button>
+            </>
+          )}
+          {!transcribing && !hasSummary && meeting.status !== "summary_failed" && (
             <button
               onClick={handleGenerateSummary}
               disabled={
@@ -140,7 +243,7 @@ export default function MeetingDetail({
               {summarizing ? "Generating…" : "Generate Summary"}
             </button>
           )}
-          {showRegenerate && (
+          {!transcribing && showRegenerate && (
             <button
               onClick={handleGenerateSummary}
               disabled={summarizing}
@@ -149,7 +252,7 @@ export default function MeetingDetail({
               {summarizing ? "Regenerating…" : "Regenerate Summary"}
             </button>
           )}
-          {meeting.status === "summary_failed" && (
+          {!transcribing && meeting.status === "summary_failed" && (
             <button
               onClick={handleGenerateSummary}
               disabled={summarizing}
@@ -158,12 +261,15 @@ export default function MeetingDetail({
               {summarizing ? "Retrying…" : "Retry Summary"}
             </button>
           )}
-          {summarizerAvailability === "unavailable" && (
+          {summarizerAvailability === "unavailable" && !transcribing && (
             <span className="text-[10px] text-amber-500">
               Chrome AI unavailable — enable Gemini Nano in chrome://flags
             </span>
           )}
         </div>
+        {transcribeError && (
+          <p className="text-xs text-red-500 mt-2">{transcribeError}</p>
+        )}
       </div>
 
       {/* Tabs */}
@@ -206,7 +312,19 @@ export default function MeetingDetail({
         {activeTab === "transcript" && (
           <div className="text-sm text-zinc-600 leading-relaxed">
             {transcript || (
-              <p className="text-zinc-400">No transcript recorded.</p>
+              !transcribing && <p className="text-zinc-400">No transcript recorded.</p>
+            )}
+            {newSegments.length > 0 && (
+              <p className={transcript ? "mt-2" : ""}>
+                <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wider mr-1">New</span>
+                {newSegments.map((s) => s.text).join(" ")}
+              </p>
+            )}
+            {newInterim && (
+              <p className="text-zinc-300 italic">{newInterim}</p>
+            )}
+            {transcribing && !transcript && newSegments.length === 0 && !newInterim && (
+              <p className="text-zinc-300">Listening…</p>
             )}
           </div>
         )}
