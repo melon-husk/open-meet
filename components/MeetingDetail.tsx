@@ -148,6 +148,19 @@ export default function MeetingDetail({
     setActiveTab("transcript");
   }
 
+  function restartWithLanguage(lang: string) {
+    transcribeLangRef.current = lang;
+    if (!transcribing || !speechRef.current) return;
+    speechRef.current.stop();
+    const controller = createSpeechRecognizer(
+      handleNewSegment,
+      handleTranscribeError,
+      lang
+    );
+    speechRef.current = controller;
+    controller.start();
+  }
+
   async function stopTranscribing() {
     speechRef.current?.stop();
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -204,6 +217,11 @@ export default function MeetingDetail({
         {/* Actions */}
         <div className="mt-3 flex items-center gap-2 flex-wrap">
           {!transcribing && (
+            <LanguageSelector
+              onLanguageChange={(lang) => { transcribeLangRef.current = lang; }}
+            />
+          )}
+          {!transcribing && (
             <button
               onClick={startTranscribing}
               disabled={summarizing}
@@ -223,8 +241,7 @@ export default function MeetingDetail({
                 Recording
               </span>
               <LanguageSelector
-                disabled
-                onLanguageChange={(lang) => { transcribeLangRef.current = lang; }}
+                onLanguageChange={restartWithLanguage}
               />
               <button
                 onClick={stopTranscribing}
