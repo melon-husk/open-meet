@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const dokployDeployUrl = process.env.DOKPLOY_DEPLOY_URL;
@@ -93,7 +94,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geist.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        <Script
+          src="https://melon-husk-deployments-umami-98cd2a-152-67-3-182.ujwalbhagat.com/script.js"
+          data-website-id="cb785ee5-8fb2-457a-ba74-8da9883a6435"
+          data-domains="meet.ujwalbhagat.com"
+          data-do-not-track="true"
+          data-performance="true"
+          data-exclude-search="true"
+          strategy="afterInteractive"
+        />
+        {children}
+      </body>
     </html>
   );
 }

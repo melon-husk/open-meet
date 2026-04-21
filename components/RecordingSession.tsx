@@ -226,6 +226,7 @@ export default function RecordingSession() {
           {status === "idle" && (
             <button
               onClick={startRecording}
+              data-umami-event="start-recording"
               className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
             >
               Start Recording
@@ -236,12 +237,14 @@ export default function RecordingSession() {
             <>
               <button
                 onClick={pauseRecording}
+                data-umami-event="pause-recording"
                 className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
               >
                 Pause
               </button>
               <button
                 onClick={finishRecording}
+                data-umami-event="stop-recording"
                 className="px-3 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
               >
                 Stop
@@ -253,12 +256,14 @@ export default function RecordingSession() {
             <>
               <button
                 onClick={resumeRecording}
+                data-umami-event="resume-recording"
                 className="px-3 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={finishRecording}
+                data-umami-event="finish-recording"
                 className="px-3 py-2 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
               >
                 Finish
@@ -286,12 +291,14 @@ export default function RecordingSession() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => recoverMeeting(recoverable)}
+              data-umami-event="crash-recovery-resume"
               className="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
             >
               Resume
             </button>
             <button
               onClick={() => discardRecovery(recoverable)}
+              data-umami-event="crash-recovery-dismiss"
               className="px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors"
             >
               Dismiss

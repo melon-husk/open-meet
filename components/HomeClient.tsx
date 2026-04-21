@@ -21,6 +21,7 @@ export default function HomeClient() {
           {view === "list" ? (
             <button
               onClick={() => setView("record")}
+              data-umami-event="new-meeting-click"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -46,8 +47,14 @@ export default function HomeClient() {
 
         {/* Footer */}
         <footer className="mt-8 pt-4 border-t border-zinc-100">
-          <p className="text-[10px] text-zinc-300 text-center">
+          <p className="text-[10px] text-zinc-500 text-center">
             Everything runs locally in your browser · No data leaves your device
+            <br />
+            <span className="text-zinc-400">
+              Anonymous page analytics via self-hosted{" "}
+              <a href="https://umami.is" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-600">Umami</a>
+              {" "}· No cookies · Respects Do Not Track
+            </span>
           </p>
         </footer>
       </div>
