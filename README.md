@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Open Meet
+
+A privacy-first meeting transcription and summarization app that runs entirely in your browser. No data ever leaves your device.
+
+## Features
+
+- **Live Transcription** — Real-time speech-to-text using the Web Speech API
+- **AI Summaries** — Generate structured summaries (key points, decisions, action items) with Chrome's built-in Summarizer API
+- **Meeting Chat** — Ask questions about any recorded meeting using the Prompt API
+- **Notes** — Take notes alongside the transcript; edit later and regenerate summaries
+- **Pause / Resume** — Pause and resume recording as needed, with autosave every 10 seconds
+- **Offline Storage** — All meetings stored locally in IndexedDB
+
+## Tech Stack
+
+- [Next.js](https://nextjs.org) 16 + React 19
+- [Tailwind CSS](https://tailwindcss.com) 4
+- [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition) for transcription
+- [Chrome Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api) for AI summaries
+- [Chrome Prompt API](https://developer.chrome.com/docs/ai/prompt-api) for meeting chat (feature-flagged)
+- IndexedDB for local persistence
+
+## Prerequisites
+
+- **Chrome or Edge** (required for Speech Recognition and Chrome AI APIs)
+- **Gemini Nano** enabled — go to `chrome://flags/#optimization-guide-on-device-model` and set to **Enabled**
+- **Summarizer API** enabled — go to `chrome://flags/#summarization-api-for-gemini-nano` and set to **Enabled**
+- Node.js 18+
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in Chrome.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How It Works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Record** — Start a new meeting, speak, and the transcript appears in real time
+2. **Note** — Add notes in the side panel during or after the meeting
+3. **Summarize** — Generate an AI summary from the transcript and your notes
+4. **Chat** — Ask follow-up questions about the meeting content
+5. **Review** — Browse past meetings from the home page
 
-## Learn More
+## Privacy
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Everything runs client-side. Speech recognition, AI summarization, and storage all happen in your browser. No server, no third-party APIs, no data exfiltration.
