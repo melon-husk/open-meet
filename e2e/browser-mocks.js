@@ -46,6 +46,49 @@
     navigator.mediaDevices.getUserMedia = async () => fakeStream;
   }
 
+  // --- MediaRecorder mock ---
+  class MockMediaRecorder {
+    state = "inactive";
+    ondataavailable = null;
+    onerror = null;
+    onstop = null;
+
+    constructor(stream) {
+      this.stream = stream;
+    }
+
+    start(timeslice) {
+      this.state = "recording";
+      // Emit a small fake chunk periodically so tests can verify storage
+      this._interval = setInterval(() => {
+        if (this.ondataavailable) {
+          this.ondataavailable({ data: new Blob(["fake-audio"], { type: "audio/webm" }) });
+        }
+      }, timeslice || 5000);
+    }
+
+    stop() {
+      clearInterval(this._interval);
+      // Emit a final chunk
+      if (this.ondataavailable) {
+        this.ondataavailable({ data: new Blob(["fake-audio-final"], { type: "audio/webm" }) });
+      }
+      this.state = "inactive";
+      if (this.onstop) this.onstop();
+    }
+
+    pause() {
+      clearInterval(this._interval);
+      this.state = "paused";
+    }
+
+    resume() {
+      this.state = "recording";
+    }
+  }
+
+  window.MediaRecorder = MockMediaRecorder;
+
   // --- SpeechRecognition mock ---
   const mocks = {
     speechInstances: [],

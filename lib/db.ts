@@ -16,9 +16,10 @@ export interface Meeting {
 }
 
 const DB_NAME = "open-meet";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = "meetings";
 const SETTINGS_STORE = "settings";
+const AUDIO_STORE = "audio_chunks";
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -32,6 +33,12 @@ function open(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         db.createObjectStore(SETTINGS_STORE, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(AUDIO_STORE)) {
+        const audioStore = db.createObjectStore(AUDIO_STORE, {
+          autoIncrement: true,
+        });
+        audioStore.createIndex("meetingId", "meetingId", { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -114,11 +121,12 @@ export async function getMeeting(id: string): Promise<Meeting | undefined> {
 
 export async function deleteMeeting(id: string): Promise<void> {
   const db = await open();
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const req = tx(db, "readwrite").delete(id);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });
+  await deleteAudioChunks(id);
 }
 
 export async function getAllMeetings(): Promise<Meeting[]> {
@@ -133,6 +141,68 @@ export async function getAllMeetings(): Promise<Meeting[]> {
         cursor.continue();
       } else {
         resolve(results);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// --- Audio chunk helpers ---
+
+function audioTx(
+  db: IDBDatabase,
+  mode: IDBTransactionMode
+): IDBObjectStore {
+  return db.transaction(AUDIO_STORE, mode).objectStore(AUDIO_STORE);
+}
+
+/** Persist a single audio chunk for a meeting. Called periodically during recording. */
+export async function saveAudioChunk(
+  meetingId: string,
+  blob: Blob
+): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const req = audioTx(db, "readwrite").add({ meetingId, blob });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Retrieve all audio chunks for a meeting, in insertion order. */
+export async function getAudioChunks(meetingId: string): Promise<Blob[]> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const index = audioTx(db, "readonly").index("meetingId");
+    const req = index.openCursor(IDBKeyRange.only(meetingId));
+    const blobs: Blob[] = [];
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        blobs.push(cursor.value.blob as Blob);
+        cursor.continue();
+      } else {
+        resolve(blobs);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Delete all audio chunks for a meeting. */
+export async function deleteAudioChunks(meetingId: string): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const store = audioTx(db, "readwrite");
+    const index = store.index("meetingId");
+    const req = index.openCursor(IDBKeyRange.only(meetingId));
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      } else {
+        resolve();
       }
     };
     req.onerror = () => reject(req.error);

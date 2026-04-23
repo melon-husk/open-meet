@@ -10,6 +10,7 @@ import {
   appendSegment,
   updateMeetingFields,
   getAllMeetings,
+  saveAudioChunk,
 } from "@/lib/db";
 import {
   isSupported as isSpeechSupported,
@@ -33,6 +34,7 @@ export default function RecordingSession() {
   const meetingRef = useRef<Meeting | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const selectedMicRef = useRef<string>("");
   const selectedLangRef = useRef<string>("hi-IN");
   const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,6 +103,26 @@ export default function RecordingSession() {
     micStreamRef.current = null;
   }
 
+  function startMediaRecorder(meetingId: string) {
+    const stream = micStreamRef.current;
+    if (!stream) return;
+    const recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        saveAudioChunk(meetingId, e.data).catch(console.error);
+      }
+    };
+    recorder.start(5000);
+    mediaRecorderRef.current = recorder;
+  }
+
+  function stopMediaRecorder() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+    recorder.stop();
+    mediaRecorderRef.current = null;
+  }
+
   async function startRecording() {
     if (!isSpeechSupported()) {
       setError("Speech recognition not supported. Use Chrome or Edge.");
@@ -127,6 +149,7 @@ export default function RecordingSession() {
     const controller = createSpeechRecognizer(handleSegment, handleSpeechError, selectedLangRef.current);
     speechRef.current = controller;
     controller.start();
+    startMediaRecorder(id);
     setStatus("recording");
     setError("");
   }
@@ -150,6 +173,9 @@ export default function RecordingSession() {
 
   function pauseRecording() {
     speechRef.current?.stop();
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.pause();
+    }
     releaseMic();
     setInterim("");
     setStatus("paused");
@@ -160,11 +186,16 @@ export default function RecordingSession() {
     const controller = createSpeechRecognizer(handleSegment, handleSpeechError, selectedLangRef.current);
     speechRef.current = controller;
     controller.start();
+    // Start a fresh MediaRecorder on the new stream since the old mic tracks were stopped
+    if (meetingRef.current) {
+      startMediaRecorder(meetingRef.current.id);
+    }
     setStatus("recording");
   }
 
   async function finishRecording() {
     speechRef.current?.stop();
+    stopMediaRecorder();
     releaseMic();
     setInterim("");
 

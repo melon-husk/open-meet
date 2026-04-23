@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Meeting, TranscriptSegment, saveMeeting, appendSegment, updateMeetingFields } from "@/lib/db";
+import { Meeting, TranscriptSegment, saveMeeting, appendSegment, updateMeetingFields, saveAudioChunk, getAudioChunks } from "@/lib/db";
 import { summarizeMeeting, chatWithSummary } from "@/lib/summarize";
 import {
   isSupported as isSpeechSupported,
@@ -24,7 +24,7 @@ export default function MeetingDetail({
 }) {
   const [meeting, setMeeting] = useState(initial);
   const [activeTab, setActiveTab] = useState<
-    "summary" | "transcript" | "notes" | "chat"
+    "summary" | "transcript" | "notes" | "chat" | "audio"
   >(meeting.summary ? "summary" : "transcript");
   const [notes, setNotes] = useState(meeting.notes);
   const [notesEdited, setNotesEdited] = useState(false);
@@ -35,6 +35,11 @@ export default function MeetingDetail({
   const [summarizerAvailability, setSummarizerAvailability] =
     useState<Availability>("unavailable");
 
+  // Audio playback state
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [hasAudio, setHasAudio] = useState<boolean | null>(null);
+
   // Transcribe-more state
   const [transcribing, setTranscribing] = useState(false);
   const [newSegments, setNewSegments] = useState<TranscriptSegment[]>([]);
@@ -42,6 +47,7 @@ export default function MeetingDetail({
   const [transcribeError, setTranscribeError] = useState("");
   const speechRef = useRef<SpeechController | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const transcribeLangRef = useRef<string>(meeting.lang ?? DEFAULT_LANG);
 
   useEffect(() => {
@@ -56,6 +62,33 @@ export default function MeetingDetail({
         setSummarizerAvailability("unavailable");
       });
   }, []);
+
+  // Load audio when Audio tab is selected
+  useEffect(() => {
+    if (activeTab !== "audio") return;
+    let revoked = false;
+    setAudioLoading(true);
+    getAudioChunks(meeting.id).then((chunks) => {
+      if (revoked) return;
+      if (chunks.length === 0) {
+        setHasAudio(false);
+        setAudioLoading(false);
+        return;
+      }
+      const blob = new Blob(chunks, { type: chunks[0].type || "audio/webm" });
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+      setHasAudio(true);
+      setAudioLoading(false);
+    });
+    return () => {
+      revoked = true;
+      setAudioUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [activeTab, meeting.id]);
 
   const transcript = meeting.segments.map((s) => s.text).join(" ");
   const hasSummary = !!meeting.summary;
@@ -143,6 +176,17 @@ export default function MeetingDetail({
     );
     speechRef.current = controller;
     controller.start();
+
+    // Start capturing audio
+    const recorder = new MediaRecorder(micStreamRef.current!);
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        saveAudioChunk(meeting.id, e.data).catch(console.error);
+      }
+    };
+    recorder.start(5000);
+    mediaRecorderRef.current = recorder;
+
     setTranscribing(true);
     setTranscribeError("");
     setActiveTab("transcript");
@@ -163,6 +207,12 @@ export default function MeetingDetail({
 
   async function stopTranscribing() {
     speechRef.current?.stop();
+    // Stop audio recorder
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    mediaRecorderRef.current = null;
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current = null;
     setTranscribing(false);
@@ -187,6 +237,7 @@ export default function MeetingDetail({
     { id: "summary" as const, label: "Summary" },
     { id: "transcript" as const, label: "Transcript" },
     { id: "notes" as const, label: "Notes" },
+    { id: "audio" as const, label: "Audio" },
     { id: "chat" as const, label: "Chat" },
   ];
 
@@ -380,6 +431,20 @@ export default function MeetingDetail({
                 </span>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === "audio" && (
+          <div className="py-8 flex flex-col items-center gap-4">
+            {audioLoading && (
+              <p className="text-zinc-400 text-sm">Loading audio…</p>
+            )}
+            {hasAudio === false && !audioLoading && (
+              <p className="text-zinc-400 text-sm">No audio recorded for this meeting.</p>
+            )}
+            {audioUrl && (
+              <audio controls src={audioUrl} className="w-full max-w-md" />
+            )}
           </div>
         )}
 
