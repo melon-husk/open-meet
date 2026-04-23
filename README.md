@@ -10,10 +10,15 @@ A privacy-first meeting transcription and summarization app that runs entirely i
 ## Features
 
 - **Live Transcription** — Real-time speech-to-text using the Web Speech API
+- **Whisper Retranscription** — Reprocess recorded meeting audio with local Whisper (`transformers.js`) for cleaner transcripts
 - **AI Summaries** — Generate structured summaries (key points, decisions, action items) with Chrome's built-in Summarizer API
 - **Meeting Chat** — Ask questions about any recorded meeting using the Prompt API
 - **Notes** — Take notes alongside the transcript; edit later and regenerate summaries
+- **Editable Meeting Titles** — Rename meetings directly from the detail page
+- **Audio Tab + Playback** — Recorded audio is saved locally and can be played back per meeting
 - **Pause / Resume** — Pause and resume recording as needed, with autosave every 10 seconds
+- **Transcribe More** — Continue recording on an existing meeting and append new segments
+- **Settings Page** — Configure default language and Whisper backend, view storage stats, and clear cached audio/model data
 - **Offline Storage** — All meetings stored locally in IndexedDB
 
 ## Tech Stack
@@ -21,6 +26,7 @@ A privacy-first meeting transcription and summarization app that runs entirely i
 - [Next.js](https://nextjs.org) 16 + React 19
 - [Tailwind CSS](https://tailwindcss.com) 4
 - [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition) for transcription
+- [transformers.js](https://github.com/huggingface/transformers.js/) + local Whisper ONNX model for retranscription
 - [Chrome Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api) for AI summaries
 - [Chrome Prompt API](https://developer.chrome.com/docs/ai/prompt-api) for meeting chat (feature-flagged)
 - IndexedDB for local persistence
@@ -47,7 +53,8 @@ Open [http://localhost:3000](http://localhost:3000) in Chrome.
 2. **Note** — Add notes in the side panel during or after the meeting
 3. **Summarize** — Generate an AI summary from the transcript and your notes
 4. **Chat** — Ask follow-up questions about the meeting content
-5. **Review** — Browse past meetings from the home page
+5. **Retranscribe (Optional)** — Run Whisper on saved audio for improved transcript quality
+6. **Review** — Browse past meetings from the home page and manage defaults from Settings
 
 ## Privacy
 
@@ -56,5 +63,4 @@ Everything runs client-side. Speech recognition, AI summarization, and storage a
 ## Screenshots
 <img width="863" height="440" alt="image" src="https://github.com/user-attachments/assets/4ce95605-4db6-421e-b817-81bcfe59fba7" />
 <img width="863" height="440" alt="image" src="https://github.com/user-attachments/assets/c971ab4f-ceb2-4e2d-b973-1d3003e03909" />
-
 
