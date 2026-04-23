@@ -107,4 +107,43 @@ test.describe("Meeting detail page", () => {
     // Language selector should be visible before transcribing
     await expect(page.locator("select")).toBeVisible();
   });
+
+  test("audio tab shows player after recording", async ({ page }) => {
+    await createMeeting(page, "Audio Test", ["audio content"]);
+
+    // Switch to Audio tab
+    await page.getByRole("button", { name: "Audio" }).click();
+
+    // Should display an audio player (mock MediaRecorder produces fake chunks)
+    await expect(page.locator("audio")).toBeVisible();
+  });
+
+  test("audio tab shows message when no audio exists", async ({ page }) => {
+    // Create a meeting by injecting directly into IndexedDB (no recording flow)
+    await page.goto("/");
+    await page.evaluate(() => {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open("open-meet", 3);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction("meetings", "readwrite");
+          tx.objectStore("meetings").put({
+            id: "no-audio-test",
+            title: "No Audio Meeting",
+            date: new Date().toISOString(),
+            segments: [{ text: "hello", timestamp: Date.now(), isFinal: true }],
+            notes: "",
+            summary: "",
+            status: "recorded",
+          });
+          tx.oncomplete = () => resolve(undefined);
+          tx.onerror = () => reject(tx.error);
+        };
+      });
+    });
+    await page.goto("/meeting/no-audio-test");
+    await expect(page.getByText("No Audio Meeting")).toBeVisible();
+    await page.getByRole("button", { name: "Audio" }).click();
+    await expect(page.getByText("No audio recorded for this meeting.")).toBeVisible();
+  });
 });
