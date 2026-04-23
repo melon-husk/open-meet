@@ -8,6 +8,7 @@ import {
   createSpeechRecognizer,
   SpeechController,
 } from "@/lib/speech";
+import { useWhisper, WhisperDevice } from "@/lib/useWhisper";
 import LanguageSelector, { DEFAULT_LANG } from "@/components/LanguageSelector";
 import Markdown from "react-markdown";
 import Link from "next/link";
@@ -49,6 +50,11 @@ export default function MeetingDetail({
   const micStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const transcribeLangRef = useRef<string>(meeting.lang ?? DEFAULT_LANG);
+
+  // Whisper retranscription state
+  const whisper = useWhisper();
+  const [whisperDevice, setWhisperDevice] = useState<WhisperDevice>("wasm");
+  const [whisperRetranscribing, setWhisperRetranscribing] = useState(false);
 
   useEffect(() => {
     if (!("Summarizer" in self)) {
@@ -233,6 +239,31 @@ export default function MeetingDetail({
     }
   }
 
+  async function handleWhisperRetranscribe() {
+    setWhisperRetranscribing(true);
+    try {
+      if (!whisper.modelLoaded) {
+        await whisper.loadModel(whisperDevice);
+      }
+
+      const result = await whisper.transcribe(meeting.id, meeting.lang);
+      const newSegs: TranscriptSegment[] = result.chunks.map((chunk) => ({
+        text: chunk.text.trim(),
+        timestamp: chunk.timestamp[0] * 1000,
+        isFinal: true,
+      }));
+
+      const updated = { ...meeting, segments: newSegs };
+      await saveMeeting(updated);
+      setMeeting(updated);
+      if (hasSummary) setNotesEdited(true);
+      setActiveTab("transcript");
+    } catch (e) {
+      console.error("Whisper retranscription failed:", e);
+    }
+    setWhisperRetranscribing(false);
+  }
+
   const tabs = [
     { id: "summary" as const, label: "Summary" },
     { id: "transcript" as const, label: "Transcript" },
@@ -344,6 +375,50 @@ export default function MeetingDetail({
             </span>
           )}
         </div>
+
+        {/* Whisper retranscription */}
+        {!transcribing && hasAudio !== false && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <select
+              value={whisperDevice}
+              onChange={(e) => setWhisperDevice(e.target.value as WhisperDevice)}
+              disabled={whisperRetranscribing || whisper.loading}
+              className="px-2 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white text-zinc-600 disabled:opacity-50"
+            >
+              <option value="wasm">Whisper (WASM)</option>
+              {whisper.webgpuAvailable && (
+                <option value="webgpu">Whisper (WebGPU)</option>
+              )}
+            </select>
+            <button
+              onClick={handleWhisperRetranscribe}
+              disabled={whisperRetranscribing || whisper.loading || transcribing}
+              data-umami-event="whisper-retranscribe"
+              className="px-3 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {whisperRetranscribing || whisper.loading
+                ? "Retranscribing…"
+                : "Retranscribe with Whisper"}
+            </button>
+            {(whisper.loading || whisperRetranscribing) && (
+              <span className="text-[10px] text-zinc-400">
+                {whisper.loading
+                  ? `Loading model… ${(() => {
+                      const last = whisper.progress.filter(
+                        (p) => p.status === "progress" && p.progress != null
+                      );
+                      if (last.length === 0) return "";
+                      const l = last[last.length - 1];
+                      return `${Math.round(l.progress ?? 0)}%`;
+                    })()}`
+                  : "Transcribing audio…"}
+              </span>
+            )}
+            {whisper.error && (
+              <span className="text-[10px] text-red-500">{whisper.error}</span>
+            )}
+          </div>
+        )}
         {transcribeError && (
           <p className="text-xs text-red-500 mt-2">{transcribeError}</p>
         )}
