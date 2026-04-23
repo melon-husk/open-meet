@@ -186,17 +186,19 @@ export default function RecordingSession() {
       {/* Header */}
       <div className="flex flex-col gap-3 pb-6 border-b border-zinc-100 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 min-w-0">
-          {status === "idle" ? (
-            <input
-              type="text"
-              placeholder="Meeting title (optional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="text-lg font-medium text-zinc-900 placeholder:text-zinc-300 w-full outline-none bg-transparent"
-            />
-          ) : (
+          <input
+            type="text"
+            placeholder="Meeting title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={status !== "idle"}
+            className={`text-lg font-medium text-zinc-900 placeholder:text-zinc-300 w-full outline-none bg-transparent disabled:opacity-100 ${
+              status !== "idle" ? "hidden" : "block"
+            }`}
+          />
+          {status !== "idle" && (
             <h2 className="text-lg font-medium text-zinc-900 truncate">
-              {meetingRef.current?.title}
+              {title}
             </h2>
           )}
         </div>

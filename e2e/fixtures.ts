@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks, @typescript-eslint/no-explicit-any */
 import { test as base, expect } from "@playwright/test";
 import path from "path";
 
