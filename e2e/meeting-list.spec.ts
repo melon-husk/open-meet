@@ -3,7 +3,7 @@ import { test, expect, emitSegment } from "./fixtures";
 test.describe("Meeting list", () => {
   async function createAndFinishMeeting(
     page: import("@playwright/test").Page,
-    title: string
+    title: string,
   ) {
     await page.goto("/");
     await page.getByRole("button", { name: "New Meeting" }).click();

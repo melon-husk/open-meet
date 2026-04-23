@@ -5,7 +5,7 @@ test.describe("Meeting detail page", () => {
   async function createMeeting(
     page: import("@playwright/test").Page,
     title: string,
-    transcriptTexts: string[]
+    transcriptTexts: string[],
   ) {
     await page.goto("/");
     await page.getByRole("button", { name: "New Meeting" }).click();
@@ -26,7 +26,9 @@ test.describe("Meeting detail page", () => {
   }
 
   test("shows meeting title and date", async ({ page }) => {
-    await createMeeting(page, "Architecture Review", ["discussed microservices"]);
+    await createMeeting(page, "Architecture Review", [
+      "discussed microservices",
+    ]);
     await expect(page.getByText("Architecture Review")).toBeVisible();
   });
 
@@ -40,20 +42,18 @@ test.describe("Meeting detail page", () => {
 
     // Switch to Notes
     await page.getByRole("button", { name: "Notes" }).click();
-    await expect(
-      page.getByPlaceholder(/Add or edit your notes/)
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/Add or edit your notes/)).toBeVisible();
 
     // Switch to Chat
     await page.getByRole("button", { name: "Chat" }).click();
     await expect(
-      page.getByText("Ask anything about this meeting")
+      page.getByText("Ask anything about this meeting"),
     ).toBeVisible();
 
     // Switch to Summary
     await page.getByRole("button", { name: "Summary", exact: true }).click();
     await expect(
-      page.getByText('No summary yet — click "Generate Summary" above')
+      page.getByText('No summary yet — click "Generate Summary" above'),
     ).toBeVisible();
   });
 
@@ -69,7 +69,7 @@ test.describe("Meeting detail page", () => {
     await page.reload();
     await page.getByRole("button", { name: "Notes" }).click();
     await expect(page.getByPlaceholder(/Add or edit your notes/)).toHaveValue(
-      "My meeting notes"
+      "My meeting notes",
     );
   });
 
@@ -96,7 +96,9 @@ test.describe("Meeting detail page", () => {
 
     // Stop transcribing
     await page.getByRole("button", { name: "Stop" }).click();
-    await expect(page.getByText("Recording", { exact: true })).not.toBeVisible();
+    await expect(
+      page.getByText("Recording", { exact: true }),
+    ).not.toBeVisible();
 
     // Both original and new content should be in transcript
     await expect(page.getByText("original content")).toBeVisible();
@@ -118,16 +120,26 @@ test.describe("Meeting detail page", () => {
     await expect(page.locator("audio")).toBeVisible();
   });
 
-  test("audio tab shows no-audio message for meetings without recording", async ({ page }) => {
+  test("audio tab shows no-audio message for meetings without recording", async ({
+    page,
+  }) => {
     // Override MediaRecorder to not produce any audio chunks
     await page.addInitScript(() => {
       window.MediaRecorder = class {
         state = "inactive";
         ondataavailable = null;
-        start() { this.state = "recording"; }
-        stop() { this.state = "inactive"; }
-        pause() { this.state = "paused"; }
-        resume() { this.state = "recording"; }
+        start() {
+          this.state = "recording";
+        }
+        stop() {
+          this.state = "inactive";
+        }
+        pause() {
+          this.state = "paused";
+        }
+        resume() {
+          this.state = "recording";
+        }
       } as unknown as typeof MediaRecorder;
     });
 
@@ -140,16 +152,22 @@ test.describe("Meeting detail page", () => {
     await page.waitForURL(/\/meeting\/.+/);
 
     await page.getByRole("button", { name: "Audio" }).click();
-    await expect(page.getByText("No audio recorded for this meeting.")).toBeVisible();
+    await expect(
+      page.getByText("No audio recorded for this meeting."),
+    ).toBeVisible();
   });
 
-  test("shows whisper retranscribe button for meetings with audio", async ({ page }) => {
+  test("shows whisper retranscribe button for meetings with audio", async ({
+    page,
+  }) => {
     await createMeeting(page, "Whisper Test", ["original text"]);
     // After recording, meeting has audio chunks from MockMediaRecorder
     await expect(
-      page.getByRole("button", { name: /Retranscribe with Whisper/ })
+      page.getByRole("button", { name: /Retranscribe with Whisper/ }),
     ).toBeVisible();
     // Device selector should be visible
-    await expect(page.locator("select").filter({ hasText: "Whisper" })).toBeVisible();
+    await expect(
+      page.locator("select").filter({ hasText: "Whisper" }),
+    ).toBeVisible();
   });
 });
