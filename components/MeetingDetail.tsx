@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Meeting, TranscriptSegment, saveMeeting, appendSegment, updateMeetingFields, saveAudioChunk, getAudioChunks } from "@/lib/db";
+import { Meeting, TranscriptSegment, saveMeeting, appendSegment, updateMeetingFields, saveAudioChunk, getAudioChunks, getSetting } from "@/lib/db";
 import { summarizeMeeting, chatWithSummary } from "@/lib/summarize";
 import {
   isSupported as isSpeechSupported,
@@ -55,6 +55,13 @@ export default function MeetingDetail({
   const whisper = useWhisper();
   const [whisperDevice, setWhisperDevice] = useState<WhisperDevice>("wasm");
   const [whisperRetranscribing, setWhisperRetranscribing] = useState(false);
+
+  // Load saved whisper device preference
+  useEffect(() => {
+    getSetting("whisperDevice").then((saved) => {
+      if (saved === "wasm" || saved === "webgpu") setWhisperDevice(saved);
+    });
+  }, []);
 
   useEffect(() => {
     if (!("Summarizer" in self)) {
@@ -282,9 +289,18 @@ export default function MeetingDetail({
         >
           ← Back
         </Link>
-        <h1 className="text-xl font-semibold text-zinc-900 mt-2">
-          {meeting.title}
-        </h1>
+        <input
+          type="text"
+          value={meeting.title}
+          onChange={(e) => setMeeting({ ...meeting, title: e.target.value })}
+          onBlur={async () => {
+            await updateMeetingFields(meeting.id, { title: meeting.title });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className="text-xl font-semibold text-zinc-900 mt-2 w-full outline-none bg-transparent border-b border-transparent hover:border-zinc-200 focus:border-zinc-400 transition-colors"
+        />
         <p className="text-xs text-zinc-400 mt-1">
           {new Date(meeting.date).toLocaleDateString("en-IN", {
             weekday: "long",
