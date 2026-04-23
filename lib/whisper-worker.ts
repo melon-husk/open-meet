@@ -31,7 +31,7 @@ class WhisperPipeline {
           device,
           dtype: {
             encoder_model: "fp32",
-            decoder_model_merged: device === "webgpu" ? "fp32" : "q8",
+            decoder_model_merged: "fp32",
           },
           progress_callback: progressCallback,
         }
