@@ -45,12 +45,18 @@ async function decodeBlobsToFloat32(blobs: Blob[]): Promise<Float32Array> {
   return decoded.getChannelData(0);
 }
 
+export interface WhisperTranscribeProgress {
+  current: number;
+  total: number;
+}
+
 export function useWhisper() {
   const workerRef = useRef<Worker | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [progress, setProgress] = useState<WhisperProgress[]>([]);
+  const [transcribeProgress, setTranscribeProgress] = useState<WhisperTranscribeProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [webgpuAvailable, setWebgpuAvailable] = useState<boolean | null>(null);
 
@@ -74,6 +80,8 @@ export function useWhisper() {
 
         if (type === "initiate" || type === "progress" || type === "done") {
           setProgress((prev) => [...prev, data as WhisperProgress]);
+        } else if (type === "transcribe_progress") {
+          setTranscribeProgress(data as WhisperTranscribeProgress);
         } else if (type === "ready") {
           setModelLoaded(true);
           setLoading(false);
@@ -119,6 +127,7 @@ export function useWhisper() {
     async (meetingId: string, language?: string): Promise<WhisperResult> => {
       setError(null);
       setTranscribing(true);
+      setTranscribeProgress(null);
 
       const blobs = await getAudioChunks(meetingId);
       if (blobs.length === 0) {
@@ -150,6 +159,7 @@ export function useWhisper() {
     modelLoaded,
     loading,
     transcribing,
+    transcribeProgress,
     progress,
     error,
     webgpuAvailable,

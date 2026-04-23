@@ -427,7 +427,9 @@ export default function MeetingDetail({
                       const l = last[last.length - 1];
                       return `${Math.round(l.progress ?? 0)}%`;
                     })()}`
-                  : "Transcribing audio…"}
+                  : whisper.transcribeProgress
+                    ? `Transcribing… ${whisper.transcribeProgress.current}/${whisper.transcribeProgress.total} chunks`
+                    : "Transcribing audio…"}
               </span>
             )}
             {whisper.error && (

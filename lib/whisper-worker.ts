@@ -142,6 +142,12 @@ self.addEventListener("message", async (event: MessageEvent) => {
     try {
       const transcriber = await WhisperPipeline.getInstance("wasm");
 
+      // Calculate total chunks for progress reporting
+      const durationS = audio.length / 16000;
+      const effectiveStride = CHUNK_LENGTH_S - STRIDE_LENGTH_S;
+      const totalChunks = Math.max(1, Math.ceil(durationS / effectiveStride));
+      let currentChunk = 0;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (transcriber as any)(audio, {
         top_k: 0,
@@ -151,6 +157,13 @@ self.addEventListener("message", async (event: MessageEvent) => {
         return_timestamps: true,
         force_full_sequences: false,
         language: resolveWhisperLanguage(language),
+        chunk_callback: () => {
+          currentChunk++;
+          self.postMessage({
+            type: "transcribe_progress",
+            data: { current: currentChunk, total: totalChunks },
+          });
+        },
       });
 
       const output = result as {
