@@ -209,6 +209,65 @@ export async function deleteAudioChunks(meetingId: string): Promise<void> {
   });
 }
 
+// --- Storage management helpers ---
+
+/** Get count of all meetings. */
+export async function getMeetingCount(): Promise<number> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const req = tx(db, "readonly").count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Estimate total size of stored audio chunks in bytes. */
+export async function getAudioStorageEstimate(): Promise<{ count: number; bytes: number }> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const store = audioTx(db, "readonly");
+    const req = store.openCursor();
+    let count = 0;
+    let bytes = 0;
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        count++;
+        const blob = cursor.value.blob as Blob;
+        bytes += blob.size;
+        cursor.continue();
+      } else {
+        resolve({ count, bytes });
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Delete all audio chunks across all meetings. */
+export async function deleteAllAudio(): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const req = audioTx(db, "readwrite").clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Clear the Whisper model from the browser Cache API. */
+export async function clearWhisperCache(): Promise<boolean> {
+  if (typeof caches === "undefined") return false;
+  const keys = await caches.keys();
+  let cleared = false;
+  for (const key of keys) {
+    if (key.includes("transformers")) {
+      await caches.delete(key);
+      cleared = true;
+    }
+  }
+  return cleared;
+}
+
 // --- Settings helpers ---
 
 function settingsTx(

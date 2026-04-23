@@ -10,6 +10,11 @@ const STRIDE_LENGTH_S = 5;
 
 env.allowLocalModels = false;
 
+// Use all available cores for WASM backend (requires COEP/COOP headers)
+if (env.backends?.onnx?.wasm) {
+  env.backends.onnx.wasm.numThreads = navigator.hardwareConcurrency || 4;
+}
+
 /** Map BCP-47 language codes (e.g. "hi-IN") to Whisper language names. */
 const BCP47_TO_WHISPER: Record<string, string> = {
   hi: "hindi",
