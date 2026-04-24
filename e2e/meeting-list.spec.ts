@@ -53,6 +53,6 @@ test.describe("Meeting list", () => {
     await page.goto("/");
     await page.getByText("Clickable Meeting").click();
     await page.waitForURL(/\/meeting\/.+/);
-    await expect(page.getByText("Clickable Meeting")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "" })).toHaveValue("Clickable Meeting");
   });
 });
