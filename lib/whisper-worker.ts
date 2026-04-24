@@ -140,7 +140,9 @@ self.addEventListener("message", async (event: MessageEvent) => {
       language?: string;
     };
     try {
-      const transcriber = await WhisperPipeline.getInstance("wasm");
+      const transcriber = await WhisperPipeline.getInstance(
+        (WhisperPipeline.currentDevice as "webgpu" | "wasm") ?? "wasm"
+      );
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (transcriber as any)(audio, {
