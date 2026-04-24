@@ -22,14 +22,14 @@ test.describe("Meeting detail page", () => {
     await page.getByRole("button", { name: "Stop" }).click();
     await page.waitForURL(/\/meeting\/.+/);
     // Wait for meeting detail to load from IndexedDB
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "" })).toHaveValue(title);
   }
 
   test("shows meeting title and date", async ({ page }) => {
     await createMeeting(page, "Architecture Review", [
       "discussed microservices",
     ]);
-    await expect(page.getByText("Architecture Review")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "" })).toHaveValue("Architecture Review");
   });
 
   test("tabs switch between summary, transcript, notes, chat", async ({
